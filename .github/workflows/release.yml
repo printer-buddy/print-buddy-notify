@@ -157,6 +157,8 @@ jobs:
           git push origin "v$VERSION"
           gh release create "$PART-v$VERSION" dist/* --repo "$MAIN_REPO" --latest=false \
             --title "$PART v$VERSION" --notes-file notes.md
+          GH_TOKEN="${{ github.token }}" gh release create "v$VERSION" dist/* --repo "$GITHUB_REPOSITORY" --latest \
+            --title "v$VERSION" --notes-file notes.md
 
       - name: Publish nightly
         if: steps.plan.outputs.mode == 'nightly' && steps.plan.outputs.go == '1' && inputs.test != true
