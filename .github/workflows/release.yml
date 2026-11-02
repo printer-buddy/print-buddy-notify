@@ -5,11 +5,6 @@ on:
     - cron: "0 6 * * *"
   workflow_dispatch:
     inputs:
-      kind:
-        description: "What to publish"
-        type: choice
-        options: [stable, nightly]
-        default: stable
       version:
         description: "Stable version like 1.2.0. Leave blank for the next one. An existing version rolls main back to it."
         required: false
@@ -53,12 +48,11 @@ jobs:
       - name: Plan
         id: plan
         env:
-          KIND: ${{ inputs.kind }}
           VERSION: ${{ inputs.version }}
           BUMP: ${{ inputs.bump }}
           EVENT: ${{ github.event_name }}
         run: |
-          [ "$EVENT" = schedule ] && KIND=nightly
+          KIND=stable; [ "$EVENT" = schedule ] && KIND=nightly
           last="$(git tag -l 'v*' | sed 's/^v//' | sort -V | tail -1)"
           sha="$(git rev-parse HEAD)"
           echo "last=$last" >> "$GITHUB_OUTPUT"
