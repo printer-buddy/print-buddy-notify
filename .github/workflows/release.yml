@@ -12,6 +12,8 @@
 name: release
 
 on:
+  push:
+    branches: [nightly]
   schedule:
     - cron: "0 6 * * *"
   workflow_dispatch:
@@ -69,14 +71,20 @@ jobs:
           BUMP: ${{ inputs.bump }}
           EVENT: ${{ github.event_name }}
         run: |
-          [ "$EVENT" = schedule ] && KIND=nightly
+          case "$EVENT" in schedule|push) KIND=nightly ;; esac
           last="$(git tag -l 'v*' | sed 's/^v//' | sort -V | tail -1)"
           sha="$(git rev-parse HEAD)"
           echo "last=$last" >> "$GITHUB_OUTPUT"
+          base=""
+          if [ -n "$last" ]; then
+            base="$(git log -1 --format=%B "v$last" | sed -n 's/^Squashed from nightly@\([0-9a-f]\{7,40\}\).*/\1/p' | head -1)"
+            [ -n "$base" ] || base="v$last"
+          fi
+          echo "base=$base" >> "$GITHUB_OUTPUT"
           echo "sha=$sha" >> "$GITHUB_OUTPUT"
           if [ "$KIND" = nightly ]; then
             go=1
-            if [ "$EVENT" = schedule ] && gh release view "$PART-nightly" --repo "$MAIN_REPO" --json body -q .body 2>/dev/null | grep -q "$sha"; then go=0; fi
+            if [ "$EVENT" != workflow_dispatch ] && gh release view "$PART-nightly" --repo "$MAIN_REPO" --json body -q .body 2>/dev/null | grep -q "$sha"; then go=0; fi
             { echo "mode=nightly"; echo "go=$go"; } >> "$GITHUB_OUTPUT"
             echo "Nightly build of $sha (go=$go)"
             exit 0
@@ -105,7 +113,7 @@ jobs:
       - name: List the changes
         if: steps.plan.outputs.mode == 'release'
         run: |
-          range="${{ steps.plan.outputs.last }}"; [ -n "$range" ] && range="v$range..HEAD" || range="HEAD"
+          range="${{ steps.plan.outputs.base }}"; [ -n "$range" ] && range="$range..HEAD" || range="HEAD"
           git log --no-merges --pretty='- %s' $range | head -80 > changes.txt
           [ -s changes.txt ] || echo "- No changes since the last release" > changes.txt
           cat changes.txt
@@ -118,8 +126,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           GITHUB_TOKEN: ${{ github.token }}
+          COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_TOKEN }}
         run: |
-          npm install -g @github/copilot
+          npm install -g --include=optional @github/copilot
           cat > prompt.txt <<EOF
           You write release notes for the notifications part of Printer Buddy, a web app for managing 3D printers. Below is the list of commits with the files each one changed. For every commit, read the real code change by running git show followed by the commit hash (you may also use git diff and git log) before you write about it, so you describe what the code does, not just what the message says. Only use those read-only git commands. Do not change anything.
           Reply in Markdown, no preamble, grouped under these headings, leaving out any that would be empty:
@@ -169,8 +178,13 @@ jobs:
         env:
           VERSION: ${{ steps.plan.outputs.version }}
         run: |
-          git push --force-with-lease origin "HEAD:refs/heads/main"
-          git tag "v$VERSION"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898283+github-actions[bot]@users.noreply.github.com"
+          git fetch -q origin main || true
+          parent="$(git rev-parse -q --verify origin/main || true)"
+          commit="$(git commit-tree "HEAD^{tree}" ${parent:+-p "$parent"} -m "$PART v$VERSION" -m "Squashed from nightly@$(git rev-parse HEAD)")"
+          git push origin "$commit:refs/heads/main"
+          git tag "v$VERSION" "$commit"
           git push origin "v$VERSION"
           gh release create "$PART-v$VERSION" dist/* --repo "$MAIN_REPO" --latest=false \
             --title "$PART v$VERSION" --notes-file notes.md
