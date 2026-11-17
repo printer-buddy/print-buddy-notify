@@ -1,3 +1,5 @@
+<p align="center"><img src="https://raw.githubusercontent.com/printer-buddy/printer-buddy/nightly/assets/logo.png" alt="Printer Buddy" width="160"></p>
+
 # Print Buddy Notify
 
 Notifications for Printer Buddy: a message when a print starts, pauses, finishes or fails, when a printer goes
@@ -31,3 +33,7 @@ attached by default. `NTFY_URL`, `NTFY_TOKEN`, `DISCORD_WEBHOOK` and `NOTIFY_EVE
 `tiers.json` builds `print-buddy-notify-basic.tar.gz` and `print-buddy-notify-advanced.tar.gz`. Both hold `pb_notify`;
 the level only changes how it behaves. The installer extracts `pb_notify/__init__.py` as `app/core/notify.py`.
 A nightly build runs every day at 06:00 (UTC), and a `v*` tag publishes a stable release into the Printer Buddy repo.
+
+## License
+
+Copyright (C) 2026 sterling motuz. Licensed under the GNU Affero General Public License v3.0 only (AGPL-3.0-only), with extra terms: keep the licence header in each file, and include a CHANGELOG of any changes. See [LICENSE](LICENSE) and [NOTICE](NOTICE). The Printer Buddy name and logo are not covered by the licence.
